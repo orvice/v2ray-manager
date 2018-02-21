@@ -52,7 +52,7 @@ func (m *Manager) AddUser(u User) error {
 	})
 	if err != nil {
 		m.logger.Errorf("failed to call add user: %v", err)
-		return nil
+		return err
 	}
 	m.logger.Debugf("call add user resp: %v", resp)
 
