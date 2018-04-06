@@ -2,19 +2,31 @@ package v2raymanager
 
 import (
 	"context"
+	"fmt"
 	"github.com/orvice/kit/log"
 	"google.golang.org/grpc"
 	"v2ray.com/core/app/proxyman/command"
+	statscmd "v2ray.com/core/app/stats/command"
 	"v2ray.com/core/common/protocol"
 	"v2ray.com/core/common/serial"
 	"v2ray.com/core/proxy/vmess"
 )
 
 type Manager struct {
-	client     command.HandlerServiceClient
-	inBoundTag string
+	client      command.HandlerServiceClient
+	statsClient statscmd.StatsServiceClient
 
-	logger log.Logger
+	inBoundTag string
+	logger     log.Logger
+}
+
+const (
+	UplinkFormat   = "user>>>%s>>>traffic>>>uplink"
+	DownlinkFormat = "user>>>%s>>>traffic>>>downlink"
+)
+
+type TrafficInfo struct {
+	Up, Down int64
 }
 
 func NewManager(addr, tag string) (*Manager, error) {
@@ -23,10 +35,12 @@ func NewManager(addr, tag string) (*Manager, error) {
 		return nil, err
 	}
 	client := command.NewHandlerServiceClient(cc)
+	statsClient := statscmd.NewStatsServiceClient(cc)
 	m := &Manager{
-		client:     client,
-		inBoundTag: tag,
-		logger:     log.NewDefaultLogger(),
+		client:      client,
+		statsClient: statsClient,
+		inBoundTag:  tag,
+		logger:      log.NewDefaultLogger(),
 	}
 	return m, nil
 }
@@ -73,4 +87,30 @@ func (m *Manager) RemoveUser(u User) error {
 	m.logger.Debugf("call remove user resp: %v", resp)
 
 	return nil
+}
+
+// @todo error handle
+func (m *Manager) GetTrafficAndReset(u User) TrafficInfo {
+	ti := TrafficInfo{}
+	ctx := context.Background()
+	up, err := m.statsClient.GetStats(ctx, &statscmd.GetStatsRequest{
+		Name:   fmt.Sprintf(UplinkFormat, u.GetEmail()),
+		Reset_: true,
+	})
+	if err != nil {
+		return ti
+	}
+
+	down, err := m.statsClient.GetStats(ctx, &statscmd.GetStatsRequest{
+		Name:   fmt.Sprintf(DownlinkFormat, u.GetEmail()),
+		Reset_: true,
+	})
+	if err != nil {
+		return ti
+	}
+
+	ti.Up = up.Stat.Value
+	ti.Down = down.Stat.Value
+
+	return ti
 }
