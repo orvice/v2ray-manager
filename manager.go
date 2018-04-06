@@ -98,6 +98,7 @@ func (m *Manager) GetTrafficAndReset(u User) TrafficInfo {
 		Reset_: true,
 	})
 	if err != nil {
+		m.logger.Errorf("get traffic user %v error %v",u,err)
 		return ti
 	}
 
@@ -106,6 +107,7 @@ func (m *Manager) GetTrafficAndReset(u User) TrafficInfo {
 		Reset_: true,
 	})
 	if err != nil {
+		m.logger.Errorf("get traffic user %v error %v",u,err)
 		return ti
 	}
 
