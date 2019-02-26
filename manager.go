@@ -64,12 +64,10 @@ func (m *Manager) AddUser(u User) error {
 			},
 		}),
 	})
-	if err != nil {
+	if err != nil && !IsAlreadyExistsError(err) {
 		m.logger.Errorf("failed to call add user: %v", err)
 		return err
 	}
-	m.logger.Debugf("call add user resp: %v", resp)
-
 	return nil
 }
 
