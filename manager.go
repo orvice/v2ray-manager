@@ -97,8 +97,8 @@ func (m *Manager) GetTrafficAndReset(u User) TrafficInfo {
 		Name:   fmt.Sprintf(UplinkFormat, u.GetEmail()),
 		Reset_: true,
 	})
-	if err != nil {
-		m.logger.Errorf("get traffic user %v error %v",u,err)
+	if err != nil && !IsNotFoundError(err) {
+		m.logger.Errorf("get traffic user %v error %v", u, err)
 		return ti
 	}
 
@@ -106,8 +106,8 @@ func (m *Manager) GetTrafficAndReset(u User) TrafficInfo {
 		Name:   fmt.Sprintf(DownlinkFormat, u.GetEmail()),
 		Reset_: true,
 	})
-	if err != nil {
-		m.logger.Errorf("get traffic user %v error %v",u,err)
+	if err != nil && !IsNotFoundError(err) {
+		m.logger.Errorf("get traffic user %v error %v", u, err)
 		return ti
 	}
 
