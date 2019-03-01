@@ -49,7 +49,8 @@ func (m *Manager) SetLogger(l log.Logger) {
 	m.logger = l
 }
 
-func (m *Manager) AddUser(u User) error {
+// return is exist,and error
+func (m *Manager) AddUser(u User) (bool, error) {
 	resp, err := m.client.AlterInbound(context.Background(), &command.AlterInboundRequest{
 		Tag: m.inBoundTag,
 		Operation: serial.ToTypedMessage(&command.AddUserOperation{
@@ -66,9 +67,9 @@ func (m *Manager) AddUser(u User) error {
 	})
 	if err != nil && !IsAlreadyExistsError(err) {
 		m.logger.Errorf("failed to call add user:  resp %v error %v", resp, err)
-		return err
+		return false, err
 	}
-	return nil
+	return IsAlreadyExistsError(err), nil
 }
 
 func (m *Manager) RemoveUser(u User) error {
