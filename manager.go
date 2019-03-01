@@ -109,8 +109,11 @@ func (m *Manager) GetTrafficAndReset(u User) TrafficInfo {
 		return ti
 	}
 
-	ti.Up = up.Stat.Value
-	ti.Down = down.Stat.Value
-
+	if up != nil {
+		ti.Up = up.Stat.Value
+	}
+	if down != nil {
+		ti.Down = down.Stat.Value
+	}
 	return ti
 }
