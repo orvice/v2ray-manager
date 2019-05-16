@@ -3,7 +3,9 @@ package v2raymanager
 import (
 	"context"
 	"fmt"
-	"github.com/orvice/kit/log"
+	"github.com/weeon/contract"
+	"github.com/weeon/log"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"v2ray.com/core/app/proxyman/command"
 	statscmd "v2ray.com/core/app/stats/command"
@@ -17,7 +19,7 @@ type Manager struct {
 	statsClient statscmd.StatsServiceClient
 
 	inBoundTag string
-	logger     log.Logger
+	logger     contract.Logger
 }
 
 const (
@@ -29,7 +31,7 @@ type TrafficInfo struct {
 	Up, Down int64
 }
 
-func NewManager(addr, tag string) (*Manager, error) {
+func NewManager(addr, tag string, l contract.Logger) (*Manager, error) {
 	cc, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
@@ -40,12 +42,15 @@ func NewManager(addr, tag string) (*Manager, error) {
 		client:      client,
 		statsClient: statsClient,
 		inBoundTag:  tag,
-		logger:      log.NewDefaultLogger(),
+		logger:      l,
+	}
+	if m.logger == nil {
+		m.logger, _ = log.NewLogger("/app/log/sdk.log", zapcore.DebugLevel)
 	}
 	return m, nil
 }
 
-func (m *Manager) SetLogger(l log.Logger) {
+func (m *Manager) SetLogger(l contract.Logger) {
 	m.logger = l
 }
 
@@ -66,7 +71,10 @@ func (m *Manager) AddUser(u User) (bool, error) {
 		}),
 	})
 	if err != nil && !IsAlreadyExistsError(err) {
-		m.logger.Errorf("failed to call add user:  resp %v error %v", resp, err)
+		m.logger.Errorw("failed to call add user",
+			"resp", resp,
+			"error", err,
+		)
 		return false, err
 	}
 	return IsAlreadyExistsError(err), nil
@@ -106,7 +114,9 @@ func (m *Manager) GetTrafficAndReset(u User) TrafficInfo {
 		Reset_: true,
 	})
 	if err != nil && !IsNotFoundError(err) {
-		m.logger.Errorf("get traffic user %v error %v", u, err)
+		m.logger.Errorw("get traffic user fail",
+			"user", u,
+			"error", err)
 		return ti
 	}
 
