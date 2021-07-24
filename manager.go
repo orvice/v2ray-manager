@@ -3,15 +3,15 @@ package v2raymanager
 import (
 	"context"
 	"fmt"
+	"github.com/v2fly/v2ray-core/v4/app/proxyman/command"
+	statscmd "github.com/v2fly/v2ray-core/v4/app/stats/command"
+	"github.com/v2fly/v2ray-core/v4/common/protocol"
+	"github.com/v2fly/v2ray-core/v4/common/serial"
+	"github.com/v2fly/v2ray-core/v4/proxy/vmess"
 	"github.com/weeon/contract"
 	"github.com/weeon/log"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-	"v2ray.com/core/app/proxyman/command"
-	statscmd "v2ray.com/core/app/stats/command"
-	"v2ray.com/core/common/protocol"
-	"v2ray.com/core/common/serial"
-	"v2ray.com/core/proxy/vmess"
 )
 
 type Manager struct {
@@ -55,8 +55,8 @@ func (m *Manager) SetLogger(l contract.Logger) {
 }
 
 // return is exist,and error
-func (m *Manager) AddUser(u User) (bool, error) {
-	resp, err := m.client.AlterInbound(context.Background(), &command.AlterInboundRequest{
+func (m *Manager) AddUser(ctx context.Context, u User) (bool, error) {
+	resp, err := m.client.AlterInbound(ctx, &command.AlterInboundRequest{
 		Tag: m.inBoundTag,
 		Operation: serial.ToTypedMessage(&command.AddUserOperation{
 			User: &protocol.User{
@@ -80,8 +80,8 @@ func (m *Manager) AddUser(u User) (bool, error) {
 	return IsAlreadyExistsError(err), nil
 }
 
-func (m *Manager) RemoveUser(u User) error {
-	resp, err := m.client.AlterInbound(context.Background(), &command.AlterInboundRequest{
+func (m *Manager) RemoveUser(ctx context.Context, u User) error {
+	resp, err := m.client.AlterInbound(ctx, &command.AlterInboundRequest{
 		Tag: m.inBoundTag,
 		Operation: serial.ToTypedMessage(&command.RemoveUserOperation{
 			Email: u.GetEmail(),
@@ -97,9 +97,8 @@ func (m *Manager) RemoveUser(u User) error {
 }
 
 // @todo error handle
-func (m *Manager) GetTrafficAndReset(u User) TrafficInfo {
+func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) TrafficInfo {
 	ti := TrafficInfo{}
-	ctx := context.Background()
 	up, err := m.statsClient.GetStats(ctx, &statscmd.GetStatsRequest{
 		Name:   fmt.Sprintf(UplinkFormat, u.GetEmail()),
 		Reset_: true,
