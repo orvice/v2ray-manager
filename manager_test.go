@@ -17,14 +17,16 @@ func TestManager(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	resp, err := cli.GetUserList(context.Background())
+	resp, err := cli.GetUserList(context.Background(), false)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
+	t.Logf("len %d", len(resp))
+
 	for _, v := range resp {
-		t.Log(v.GetEmail(), v.GetUUID())
+		t.Log(v.User.GetUUID(), v.TrafficInfo.Down, v.TrafficInfo.Up)
 	}
 
 }

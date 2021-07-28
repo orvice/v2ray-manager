@@ -129,30 +129,57 @@ func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) (TrafficInfo, 
 	return ti, nil
 }
 
-func (m *Manager) GetUserList(ctx context.Context) ([]User, error) {
+type UserData struct {
+	User        User
+	TrafficInfo TrafficInfo
+}
+
+func (m *Manager) GetUserList(ctx context.Context, reset bool) ([]UserData, error) {
 	resp, err := m.statsClient.QueryStats(ctx, &statscmd.QueryStatsRequest{
-		Reset_: false,
+		Reset_: reset,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var users = make([]User, 0, len(resp.Stat)/2)
+	var users = make(map[string]UserData)
 
 	for _, v := range resp.Stat {
 
-		if !strings.Contains(v.GetName(), "downlink") {
-			continue
-		}
 		email := getEmailFromStatName(v.GetName())
+		uuid := getUUDIFromEmail(email)
 
-		users = append(users, user{
+		if _, ok := users[uuid]; !ok {
+			users[uuid] = UserData{
+				TrafficInfo: TrafficInfo{},
+			}
+		}
+
+		u := user{
 			email: email,
-			uuid:  getUUDIFromEmail(email),
-		})
+			uuid:  uuid,
+		}
+		ti := users[uuid].TrafficInfo
+
+		if strings.Contains(v.GetName(), "downlink") {
+			ti.Down = v.Value
+		} else {
+			ti.Up = v.Value
+		}
+
+		users[uuid] = UserData{
+			User:        u,
+			TrafficInfo: ti,
+		}
+
 	}
 
-	return users, nil
+	var data = make([]UserData, 0, len(users))
+	for _, v := range users {
+		data = append(data, v)
+	}
+
+	return data, nil
 }
 
 func getEmailFromStatName(s string) string {
