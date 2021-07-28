@@ -12,6 +12,7 @@ import (
 	"github.com/weeon/log"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+	"strings"
 )
 
 type Manager struct {
@@ -97,7 +98,7 @@ func (m *Manager) RemoveUser(ctx context.Context, u User) error {
 }
 
 // @todo error handle
-func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) TrafficInfo {
+func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) (TrafficInfo, error) {
 	ti := TrafficInfo{}
 	up, err := m.statsClient.GetStats(ctx, &statscmd.GetStatsRequest{
 		Name:   fmt.Sprintf(UplinkFormat, u.GetEmail()),
@@ -105,7 +106,7 @@ func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) TrafficInfo {
 	})
 	if err != nil && !IsNotFoundError(err) {
 		m.logger.Errorf("get traffic user %v error %v", u, err)
-		return ti
+		return ti, err
 	}
 
 	down, err := m.statsClient.GetStats(ctx, &statscmd.GetStatsRequest{
@@ -116,7 +117,7 @@ func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) TrafficInfo {
 		m.logger.Errorw("get traffic user fail",
 			"user", u,
 			"error", err)
-		return ti
+		return ti, nil
 	}
 
 	if up != nil {
@@ -125,5 +126,47 @@ func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) TrafficInfo {
 	if down != nil {
 		ti.Down = down.Stat.Value
 	}
-	return ti
+	return ti, nil
+}
+
+func (m *Manager) GetUserList(ctx context.Context) ([]User, error) {
+	resp, err := m.statsClient.QueryStats(ctx, &statscmd.QueryStatsRequest{
+		Reset_: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var users = make([]User, 0, len(resp.Stat)/2)
+
+	for _, v := range resp.Stat {
+
+		if !strings.Contains(v.GetName(), "downlink") {
+			continue
+		}
+		email := getEmailFromStatName(v.GetName())
+
+		users = append(users, user{
+			email: email,
+			uuid:  getUUDIFromEmail(email),
+		})
+	}
+
+	return users, nil
+}
+
+func getEmailFromStatName(s string) string {
+	arr := strings.Split(s, ">>>")
+	if len(arr) > 1 {
+		return arr[1]
+	}
+	return s
+}
+
+func getUUDIFromEmail(s string) string {
+	arr := strings.Split(s, "@")
+	if len(arr) > 0 {
+		return arr[0]
+	}
+	return s
 }
