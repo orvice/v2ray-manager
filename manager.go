@@ -3,16 +3,16 @@ package v2raymanager
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
+	"strings"
+
 	"github.com/v2fly/v2ray-core/v4/app/proxyman/command"
 	statscmd "github.com/v2fly/v2ray-core/v4/app/stats/command"
 	"github.com/v2fly/v2ray-core/v4/common/protocol"
 	"github.com/v2fly/v2ray-core/v4/common/serial"
 	"github.com/v2fly/v2ray-core/v4/proxy/vmess"
-	"github.com/weeon/contract"
-	"github.com/weeon/log"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-	"strings"
 )
 
 type Manager struct {
@@ -20,7 +20,7 @@ type Manager struct {
 	statsClient statscmd.StatsServiceClient
 
 	inBoundTag string
-	logger     contract.Logger
+	logger     *slog.Logger
 }
 
 const (
@@ -32,7 +32,7 @@ type TrafficInfo struct {
 	Up, Down int64
 }
 
-func NewManager(addr, tag string, l contract.Logger) (*Manager, error) {
+func NewManager(addr, tag string, l *slog.Logger) (*Manager, error) {
 	cc, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
@@ -46,12 +46,12 @@ func NewManager(addr, tag string, l contract.Logger) (*Manager, error) {
 		logger:      l,
 	}
 	if m.logger == nil {
-		m.logger, _ = log.NewLogger("/app/log/sdk.log", zapcore.DebugLevel)
+		m.logger = slog.New(slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{}))
 	}
 	return m, nil
 }
 
-func (m *Manager) SetLogger(l contract.Logger) {
+func (m *Manager) SetLogger(l *slog.Logger) {
 	m.logger = l
 }
 
@@ -72,7 +72,7 @@ func (m *Manager) AddUser(ctx context.Context, u User) (bool, error) {
 		}),
 	})
 	if err != nil && !IsAlreadyExistsError(err) {
-		m.logger.Errorw("failed to call add user",
+		m.logger.Error("failed to call add user",
 			"resp", resp,
 			"error", err,
 		)
@@ -89,10 +89,10 @@ func (m *Manager) RemoveUser(ctx context.Context, u User) error {
 		}),
 	})
 	if err != nil {
-		m.logger.Errorf("failed to call remove user : %v", err)
+		m.logger.Error("failed to call remove user : ", "error", err)
 		return TODOErr
 	}
-	m.logger.Debugf("call remove user resp: %v", resp)
+	m.logger.Debug("call remove user resp: ", "resp", resp)
 
 	return nil
 }
@@ -105,7 +105,7 @@ func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) (TrafficInfo, 
 		Reset_: true,
 	})
 	if err != nil && !IsNotFoundError(err) {
-		m.logger.Errorf("get traffic user %v error %v", u, err)
+		m.logger.Error("get traffic user ", "u", u, "error", err)
 		return ti, err
 	}
 
@@ -114,7 +114,7 @@ func (m *Manager) GetTrafficAndReset(ctx context.Context, u User) (TrafficInfo, 
 		Reset_: true,
 	})
 	if err != nil && !IsNotFoundError(err) {
-		m.logger.Errorw("get traffic user fail",
+		m.logger.Error("get traffic user fail",
 			"user", u,
 			"error", err)
 		return ti, nil

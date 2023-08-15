@@ -2,15 +2,15 @@ package v2raymanager
 
 import (
 	"context"
-	"github.com/weeon/log"
-	"go.uber.org/zap/zapcore"
+	"io"
+	"log/slog"
 	"os"
 	"testing"
 )
 
 func TestManager(t *testing.T) {
 	addr := os.Getenv("ADDR")
-	l, _ := log.NewLogger("/dev/stdout", zapcore.DebugLevel)
+	l := slog.New(slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{}))
 	cli, err := NewManager(addr, "api", l)
 
 	if err != nil {
